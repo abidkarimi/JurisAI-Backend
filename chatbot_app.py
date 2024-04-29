@@ -24,9 +24,12 @@ print(f"Checkpoint path: {checkpoint}")  # Add this line for debugging
 tokenizer = AutoTokenizer.from_pretrained(checkpoint)
 base_model = AutoModelForSeq2SeqLM.from_pretrained(
     checkpoint,
-    device_map=device,
+    # device_map=device,
+    device_map='auto',
     torch_dtype=torch.float32
 )
+
+hugging_face_model = "deepset/deberta-v3-base-squad2"
 
 persist_directory = "db"
 
@@ -63,26 +66,69 @@ def llm_pipeline():
     return local_llm
 
 @st.cache_resource
-def qa_llm():
-    llm = llm_pipeline()
+def llm_pipeline_using_deepset(query, vector):
+  print("Inside llm_pipeline_using_deepest", query, vector)
+  # a) Get predictions
+  nlp = pipeline('question-answering', model=hugging_face_model, tokenizer=hugging_face_model)
+  QA_input = {
+      'question': query,
+      'context': vector
+  }
+  res = nlp(QA_input)
+
+  print("Inside llm_pipeline_using_deepest response", query, res)
+  return res
+  # b) Load model & tokenizer
+  # model = AutoModelForQuestionAnswering.from_pretrained(model_name)
+  # tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+
+@st.cache_resource
+def qa_llm(instruction):
+    #  = llm_pipllmeline()
+    print("Inside QA_LLM ", instruction, instruction['query'])
     embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
     db = Chroma(persist_directory="db", embedding_function = embeddings, client_settings=CHROMA_SETTINGS)
-    retriever = db.as_retriever()
-    qa = RetrievalQA.from_chain_type(
-        llm = llm,
-        chain_type = "stuff",
-        retriever = retriever,
-        return_source_documents=True
-    )
-    return qa
+    retriever = db.as_retriever(search_kwargs={"k": 2})
+    filtered_documents = retriever.get_relevant_documents(instruction['query'])
+    print("Retriever from ChromaDB ", filtered_documents)
+    # qa = RetrievalQA.from_chain_type(
+    #     llm = llm,
+    #     chain_type = "stuff",
+    #     retriever = retriever,
+    #     return_source_documents=True
+    # )
 
+    actual_vectors = []
+    metadata = []
+    collection_of_actual_vetors_and_metadata = []
+    for doc in filtered_documents:
+        actual_vectors.append(doc.page_content)
+        metadata.append(doc.metadata)
+
+    # print("Actual Vectors:")
+    for vector in actual_vectors:
+        print("Actual Vectors: ", vector)
+        
+    print("\nMetadata:")
+    for meta in metadata:
+        print(meta)
+
+
+    return actual_vectors
+
+def check():
+    return "Checkingga"
 def process_answer(instruction):
     response = ''
+    print("Inside Process answer", instruction, instruction['query'])
     instruction = instruction
-    qa = qa_llm()
-    generated_text = qa(instruction)
-    answer = generated_text['result']
-    return answer
+    qa = qa_llm(instruction)
+    generated_text = qa
+    matched_vector = generated_text
+    final_response = llm_pipeline_using_deepset(instruction['query'],matched_vector[0])
+
+    return final_response
 
 def get_file_size(file):
     file.seek(0, os.SEEK_END)
@@ -134,10 +180,10 @@ def main():
             pdf_view = displayPDF(filepath)
 
         with col2:
-            with st.spinner('Embeddings are in process...'):
-                ingested_data = data_ingestion()
-            st.success('Embeddings are created successfully!')
-            st.markdown("<h4 style color:black;'>Chat Here</h4>", unsafe_allow_html=True)
+            # with st.spinner('Embeddings are in process...'):
+                # ingested_data = data_ingestion()
+            # st.success('Embeddings are created successfully!')
+            # st.markdown("<h4 style color:black;'>Chat Here</h4>", unsafe_allow_html=True)
 
 
             user_input = st.text_input("", key="input")
@@ -150,10 +196,14 @@ def main():
                 
             # Search the database for a response based on user input and update session state
             if user_input:
+                print("In side main before calling side llm_pipelin", user_input)
                 answer = process_answer({'query': user_input})
-                st.session_state["past"].append(user_input)
-                response = answer
-                st.session_state["generated"].append(response)
+                print("Final response from LLMA ", answer)
+                # st.session_state["past"].append(user_input)
+                # response = answer
+                # st.session_state["generated"].append(response)
+
+                # llm_pipeline_using_deepset()
 
             # Display conversation history using Streamlit messages
             if st.session_state["generated"]:
