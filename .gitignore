@@ -61,7 +61,10 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> 4c40a88057e3655c257588a7548d08389a4d35d7
 # Flask stuff:
 instance/
 .webassets-cache
@@ -159,6 +162,7 @@ cython_debug/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/
+<<<<<<< HEAD
 /db
 /dba
 /Juris
@@ -166,3 +170,5 @@ cython_debug/
 /JurisAIWithPy311
 .constants.py
 /docs
+=======
+>>>>>>> 4c40a88057e3655c257588a7548d08389a4d35d7
